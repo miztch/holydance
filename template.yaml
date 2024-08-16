@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: holydance
+
+Parameters:
+  ApplicationName:
+    Description: resource prefix
+    Type: String
+    Default: holydance
+  NotionIntegrationToken:
+    Description: integration token for Notion
+    Type: String
+  NotionArticleDatabaseID:
+    Description: database id for articles in Notion
+    Type: String
+  NotionTagDatabaseID:
+    Description: database id for tags in Notion
+    Type: String
+  NotionTagNamePrefix:
+    Description: database id for tags in Notion
+    Type: String
+  WebhookURL:
+    Description: webhook endpoint url for notification
+    Type: String
+  DaysToRetainLogs:
+    Description: days to retain logs in CloudWatch
+    Type: Number
+    Default: 30
+  SchedulerExpression:
+    Description: cron expression for scheduler
+    Type: String
+    Default: rate(1 hour)
+
+Resources:
+  Function:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      FunctionName: !Sub ${ApplicationName}
+      CodeUri: .
+      Handler: bootstrap
+      Runtime: provided.al2023
+      Timeout: 15
+      MemorySize: 128
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          NOTION_INTEGRATION_TOKEN: !Ref NotionIntegrationToken
+          NOTION_ARTICLE_DATABASE_ID: !Ref NotionArticleDatabaseID
+          NOTION_TAG_DATABASE_ID: !Ref NotionTagDatabaseID
+          NOTION_TAG_NAME_PREFIX: !Ref NotionTagNamePrefix
+          WEBHOOK_URL: !Ref WebhookURL
+      Events:
+        ScheduleEvent:
+          Type: ScheduleV2
+          Properties:
+            Name: !Sub ${ApplicationName}-scheduler
+            ScheduleExpression: !Ref SchedulerExpression
+            ScheduleExpressionTimezone: Asia/Tokyo
+
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${Function}
+      RetentionInDays: !Ref DaysToRetainLogs
